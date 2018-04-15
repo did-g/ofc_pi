@@ -488,7 +488,7 @@ int ChartXTR1::Init( const wxString& name, int init_flags )
 
       Size_X = Size_Y = 0;
       
-      PreInit(name, init_flags, PI_GLOBAL_COLOR_SCHEME_DAY);
+      PreInit(name, init_flags, PI_GLOBAL_COLOR_SCHEME_RGB);
 
       m_FullPath = name;
       m_Description = m_FullPath;
@@ -1446,7 +1446,10 @@ void ChartXTR1::SetColorScheme(int cs, bool bApplyImmediate)
           m_cached_scale_ppm = 1.0;
     }
 
-
+    //      Force a new thumbnail
+    delete m_pBMPThumb;
+    m_pBMPThumb = 0;
+    
 }
 
 
