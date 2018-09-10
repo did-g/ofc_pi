@@ -781,10 +781,13 @@ void xtr1_inStream::Close()
         close(privatefifo);
         if(g_debugLevel)printf("   unlink private fifo: %s \n", privatefifo_name);
         unlink(privatefifo_name);
+        privatefifo = -1;
     }
     
-    if(-1 != publicfifo)
+    if(-1 != publicfifo) {
         close(publicfifo);
+        publicfifo = -1;
+    }
     
     if(m_uncrypt_stream){
         delete m_uncrypt_stream;
@@ -811,9 +814,8 @@ bool xtr1_inStream::Open( )
         
     //printf("OPEN()\n");
     //wxLogMessage(_T("ofc_pi: OPEN"));
-
     // Open the well known public FIFO for writing
-    if( (publicfifo = open(PUBLIC, O_WRONLY | O_NDELAY) ) == -1) {
+    if( publicfifo == -1 && (publicfifo = open(PUBLIC, O_WRONLY | O_NDELAY) ) == -1) {
         wxLogMessage(_T("ofc_pi: Could not open PUBLIC pipe"));
         
         return false;
