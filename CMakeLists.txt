@@ -173,12 +173,19 @@ SET(SRC_OFC
             src/ellipse.c
             src/ofcShop.cpp
             src/ofcShop.h
+            src/base64.h
+            src/base64.c
      )
 
+IF(QT_ANDROID)
+    SET( SRC_OFC ${SRC_OFC} src/androidSupport.cpp )
+ENDIF(QT_ANDROID)
 
 
-OPTION(OCPN_USE_CURL "Use Curl libraries" ON)
-ADD_DEFINITIONS(-D__OCPN_USE_CURL__)
+IF(NOT QT_ANDROID)
+    OPTION(OCPN_USE_CURL "Use Curl libraries" ON)
+    ADD_DEFINITIONS(-D__OCPN_USE_CURL__)
+ENDIF(NOT QT_ANDROID)
 
 IF(WIN32)
     OPTION(OCPN_USE_EXTERN_CURL "Use external libcurl" OFF)
@@ -324,23 +331,23 @@ INSTALL(FILES "buildosx/ofcserverd/ofcserverd"
 configure_file(${PROJECT_SOURCE_DIR}/buildosx/ofcserverd/ofcserverd
             ${CMAKE_CURRENT_BINARY_DIR}/ofcserverd COPYONLY)
 
-configure_file(${PROJECT_SOURCE_DIR}/data/TD-CHS-RM-ATL05.jpg
-            ${CMAKE_CURRENT_BINARY_DIR}/TD-CHS-RM-ATL05.jpg COPYONLY)
+#configure_file(${PROJECT_SOURCE_DIR}/data/TD-CHS-RM-ATL05.jpg
+#            ${CMAKE_CURRENT_BINARY_DIR}/TD-CHS-RM-ATL05.jpg COPYONLY)
 
-configure_file(${PROJECT_SOURCE_DIR}/data/TD-EXC-BAH.jpg
-            ${CMAKE_CURRENT_BINARY_DIR}/TD-EXC-BAH.jpg COPYONLY)
+#configure_file(${PROJECT_SOURCE_DIR}/data/TD-EXC-BAH.jpg
+#            ${CMAKE_CURRENT_BINARY_DIR}/TD-EXC-BAH.jpg COPYONLY)
 
-configure_file(${PROJECT_SOURCE_DIR}/data/TD-DK-S12.jpg
-            ${CMAKE_CURRENT_BINARY_DIR}/TD-DK-S12.jpg COPYONLY)
+#configure_file(${PROJECT_SOURCE_DIR}/data/TD-DK-S12.jpg
+#            ${CMAKE_CURRENT_BINARY_DIR}/TD-DK-S12.jpg COPYONLY)
 
-configure_file(${PROJECT_SOURCE_DIR}/data/TD-DK-S21.jpg
-            ${CMAKE_CURRENT_BINARY_DIR}/TD-DK-S21.jpg COPYONLY)
+#configure_file(${PROJECT_SOURCE_DIR}/data/TD-DK-S21.jpg
+#            ${CMAKE_CURRENT_BINARY_DIR}/TD-DK-S21.jpg COPYONLY)
 
-configure_file(${PROJECT_SOURCE_DIR}/data/TD-NV-KK-2015.jpg
-            ${CMAKE_CURRENT_BINARY_DIR}/TD-NV-KK-2015.jpg COPYONLY)
+#configure_file(${PROJECT_SOURCE_DIR}/data/TD-NV-KK-2015.jpg
+#            ${CMAKE_CURRENT_BINARY_DIR}/TD-NV-KK-2015.jpg COPYONLY)
 
-configure_file(${PROJECT_SOURCE_DIR}/data/TD-ST-HG.jpg
-            ${CMAKE_CURRENT_BINARY_DIR}/TD-ST-HG.jpg COPYONLY)
+#configure_file(${PROJECT_SOURCE_DIR}/data/TD-ST-HG.jpg
+#            ${CMAKE_CURRENT_BINARY_DIR}/TD-ST-HG.jpg COPYONLY)
 
 
 ENDIF(APPLE)
@@ -350,9 +357,10 @@ ENDIF(APPLE)
 SET(CPACK_DEBIAN_PACKAGE_MAINTAINER "dsr")
 
 INCLUDE("cmake/PluginLocalization.cmake")
+
+IF(NOT QT_ANDROID)
 INCLUDE("cmake/PluginInstall.cmake")
 INCLUDE("cmake/PluginPackage.cmake")
+ENDIF(NOT QT_ANDROID)
 
-IF(WIN32)
-SET(CMAKE_INSTALL_PREFIX "c:/Projects/opencpn/build_482")
-ENDIF(WIN32)
+

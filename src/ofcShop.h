@@ -34,22 +34,31 @@
 #endif //precompiled headers
 
 #include <wx/statline.h>
-#include "wxcurl/wx/curl/http.h"
+
+#ifndef __OCPN__ANDROID__
+    #include "wxcurl/wx/curl/http.h"
+#endif
 
 #ifdef WXC_FROM_DIP
 #undef WXC_FROM_DIP
 #endif
-#if wxVERSION_NUMBER >= 3100
-#define WXC_FROM_DIP(x) wxWindow::FromDIP(x, NULL)
-#else
-#define WXC_FROM_DIP(x) x
-#endif
+
+#ifdef __OCPN__ANDROID__
+    #define WXC_FROM_DIP(x) x
+#else    
+    #if wxVERSION_NUMBER >= 3100
+        #define WXC_FROM_DIP(x) wxWindow::FromDIP(x, NULL)
+    #else
+        #define WXC_FROM_DIP(x) x
+    #endif
+#endif    
 
 wxString ProcessResponse(std::string);
 #define N_RETRY 3
 
 class shopPanel;
 class InProgressIndicator;
+class OCPN_downloadEvent;
 
 enum{
         STAT_UNKNOWN = 0,
@@ -86,8 +95,9 @@ WX_DECLARE_OBJARRAY(chartMetaInfo *, ArrayOfchartMetaInfo);
 class itemChart
 {
 public:    
-    itemChart() { m_downloading = false; m_bEnabled = true; bActivated = false; device_ok = false; pendingUpdateFlag = false; }
+    itemChart(); 
     itemChart( wxString &product_sku, int index);
+    itemChart( wxString &product_sku);
     ~itemChart() {};
 
     void setDownloadPath(int slot, wxString path);
@@ -104,7 +114,8 @@ public:
     wxString getStatusString();
     int getChartStatus();
     wxBitmap& GetChartThumbnail(int size);
-
+    bool downloadThumbnail();
+    
     //xtr
     wxString productSKU;
     int indexSKU;
@@ -152,6 +163,8 @@ public:
     wxArrayString deletedChartsNameArray;
     bool pendingUpdateFlag;
     bool bSkipDuplicates;
+    int m_thumbRetry;
+    bool bRemove;
     
 };
 
@@ -295,14 +308,15 @@ public:
     void doFullSetDownload(itemChart *chart);
     
     int doDownloadGui();
+    void onDLEvent(OCPN_downloadEvent &ev);
     
-    void UpdateChartList();
+    void UpdateChartList( bool bDownloadThumbs= false );
     int checkUpdateStatus();
         
     //void OnGetNewSystemName( wxCommandEvent& event );
     //void OnChangeSystemName( wxCommandEvent& event );
     void UpdateActionControls();
-    void setStatusText( const wxString &text ){ m_staticTextStatus->SetLabel( text );  m_staticTextStatus->Refresh(); }
+    void setStatusText( const wxString &text ){ m_staticTextStatus->Wrap(-1); m_staticTextStatus->SetLabel( text );  m_staticTextStatus->Refresh(); }
     void setStatusTextProgress( const wxString &text ){ m_staticTextStatus/*m_staticTextStatusProgress*/->SetLabel( text );  /*m_staticTextStatusProgress->Refresh();*/ }
     InProgressIndicator *getInProcessGuage() {return m_ipGauge; }
     void MakeChartVisible(oeSencChartPanel *chart);
@@ -320,6 +334,11 @@ public:
     bool m_bAbortingDownload;
     bool m_startedDownload;
     int dlTryCount;
+    
+    bool m_bTransferComplete;
+    bool m_bTransferSuccess;
+    bool m_bconnected;
+    
 };
 
 
@@ -356,6 +375,7 @@ public:
 };
 
 
+#ifdef __OCPN_USE_CURL__
 class OESENC_CURL_EvtHandler : public wxEvtHandler
 {
 public:
@@ -368,6 +388,7 @@ public:
     
     
 };
+#endif
 
 class xtr1Login: public wxDialog
 {
@@ -402,6 +423,7 @@ public:
     wxTextCtrl*   m_PasswordCtl;
     wxButton*     m_CancelButton;
     wxButton*     m_OKButton;
+    bool          m_bCompact;
     
     
 };

@@ -39,6 +39,11 @@
 #include "xtr1_inStream.h"
 #include "ofcShop.h"
 
+#ifdef __OCPN__ANDROID__
+#include "androidSupport.h"
+#include "qdebug.h"
+#endif
+
 // the class factories, used to create and destroy instances of the PlugIn
 
 extern "C" DECL_EXP opencpn_plugin* create_pi(void *ppimgr)
@@ -64,7 +69,7 @@ wxString  g_deviceInfo;
 wxString  g_loginUser;
 wxString  g_PrivateDataDir;
 wxString  g_versionString;
-
+bool g_bNoFindMessageShown;
 
 //---------------------------------------------------------------------------------------------------------
 //
@@ -209,14 +214,14 @@ wxString ofc_pi::GetCommonName()
 
 wxString ofc_pi::GetShortDescription()
 {
-    return _("Fugawi Charts PlugIn for OpenCPN");
+    return _("Fugawi.com Charts PlugIn for OpenCPN");
 }
 
 
 wxString ofc_pi::GetLongDescription()
 {
       return _("Fugawi Charts PlugIn for OpenCPN\n\
-      Provides support of Fugawi Charts RNCs.\n\n\
+Provides support for Fugawi.com raster charts.\n\n\
 ");
 
 }
@@ -263,14 +268,14 @@ bool validate_server(void)
     
     
     if(g_debugLevel)printf("\n-------validate_server\n");
-    wxLogMessage(_T("validate_server"));
+    //wxLogMessage(_T("validate_server"));
     
     if(1 /*g_serverProc*/){
         // Check to see if the server is already running, and available
         //qDebug() << "Check running server Proc";
         xtr1_inStream testAvail;
         if(testAvail.isAvailable(wxEmptyString)){
-            wxLogMessage(_T("Available TRUE"));
+            //wxLogMessage(_T("Available TRUE"));
             return true;
         }
         
@@ -279,11 +284,11 @@ bool validate_server(void)
         while(nLoop < 2){
             tmsg.Printf(_T(" nLoop: %d"), nLoop);
             if(g_debugLevel)printf("      validate_server, retry: %d \n", nLoop);
-            wxLogMessage(_T("Available FALSE, retry...") + tmsg);
+            wxLogMessage(_T("Available FALSE, retrying...") + tmsg);
             wxMilliSleep(500);
             xtr1_inStream testAvailRetry;
             if(testAvailRetry.isAvailable(wxEmptyString)){
-                wxLogMessage(_T("Available TRUE"));
+                wxLogMessage(_T("Available TRUE on retry."));
                 return true;
             }
             nLoop++;
@@ -308,13 +313,16 @@ bool validate_server(void)
     
     
     if(!::wxFileExists(bin_test)){
-        wxString msg = _("Cannot find the ofc server utility at \n");
-        msg += _T("{");
-        msg += bin_test;
-        msg += _T("}");
-        OCPNMessageBox_PlugIn(NULL, msg, _("ofc_pi Message"),  wxOK, -1, -1);
-        wxLogMessage(_T("ofc_pi: ") + msg);
+        if(!g_bNoFindMessageShown){
+            wxString msg = _("Cannot find the ofc server utility at \n");
+            msg += _T("{");
+            msg += bin_test;
+            msg += _T("}");
+            OCPNMessageBox_PlugIn(NULL, msg, _("ofc_pi Message"),  wxOK, -1, -1);
+            wxLogMessage(_T("ofc_pi: ") + msg);
         
+            g_bNoFindMessageShown = true;
+        }
         g_server_bin.Clear();
         return false;
     }
@@ -445,3 +453,88 @@ bool shutdown_server( void )
     }
 }
 
+#if 0
+#ifdef __OCPN__ANDROID__
+
+extern JavaVM *java_vm;         // found in androidUtil.cpp, accidentally exported....
+
+bool CheckPendingJNIException()
+{
+    JNIEnv* jenv;
+    
+    if (java_vm->GetEnv( (void **) &jenv, JNI_VERSION_1_6) != JNI_OK) 
+        return true;
+    
+    if( (jenv)->ExceptionCheck() == JNI_TRUE ) {
+        
+        // Handle exception here.
+        (jenv)->ExceptionDescribe(); // writes to logcat
+        (jenv)->ExceptionClear();
+        
+        return false;           // There was a pending exception, but cleared OK
+        // interesting discussion:  http://blog.httrack.com/blog/2013/08/23/catching-posix-signals-on-android/
+    }
+    
+    return false;
+    
+}
+
+
+wxString callActivityMethod_s4s(const char *method, wxString parm1, wxString parm2, wxString parm3, wxString parm4)
+{
+    if(CheckPendingJNIException())
+        return _T("NOK");
+    JNIEnv* jenv;
+    
+    wxString return_string;
+    QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod("org/qtproject/qt5/android/QtNative",
+                                                                           "activity", "()Landroid/app/Activity;");
+    if(CheckPendingJNIException())
+        return _T("NOK");
+    
+    if ( !activity.isValid() ){
+        return return_string;
+    }
+    
+    //  Need a Java environment to decode the resulting string
+    if (java_vm->GetEnv( (void **) &jenv, JNI_VERSION_1_6) != JNI_OK) {
+        return _T("jenv Error");
+    }
+    
+    wxCharBuffer p1b = parm1.ToUTF8();
+    jstring p1 = (jenv)->NewStringUTF(p1b.data());
+    
+    wxCharBuffer p2b = parm2.ToUTF8();
+    jstring p2 = (jenv)->NewStringUTF(p2b.data());
+    
+    wxCharBuffer p3b = parm3.ToUTF8();
+    jstring p3 = (jenv)->NewStringUTF(p3b.data());
+    
+    wxCharBuffer p4b = parm4.ToUTF8();
+    jstring p4 = (jenv)->NewStringUTF(p4b.data());
+    
+    QAndroidJniObject data = activity.callObjectMethod(method, "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;",
+                                                       p1, p2, p3, p4);
+    (jenv)->DeleteLocalRef(p1);
+    (jenv)->DeleteLocalRef(p2);
+    (jenv)->DeleteLocalRef(p3);
+    (jenv)->DeleteLocalRef(p4);
+    
+    if(CheckPendingJNIException())
+        return _T("NOK");
+    
+    //qDebug() << "Back from method_s4s";
+        
+        jstring s = data.object<jstring>();
+        
+        if( (jenv)->GetStringLength( s )){
+            const char *ret_string = (jenv)->GetStringUTFChars(s, NULL);
+            return_string = wxString(ret_string, wxConvUTF8);
+        }
+        
+        return return_string;
+        
+}
+
+#endif
+#endif

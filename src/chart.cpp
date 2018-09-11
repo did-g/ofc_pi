@@ -43,7 +43,9 @@
 #include <wx/msw/registry.h>
 #endif
 
-
+#ifdef __OCPN__ANDROID__
+#include "qdebug.h"
+#endif
 
 
 
@@ -454,10 +456,24 @@ ChartXTR1::~ChartXTR1()
       ChartBaseBSBDTOR();
 }
 
-
-
-
-
+void ChartXTR1::FreeLineCacheRows(int start, int end)
+{
+    if(pLineCache)
+    {
+        if(end < 0)
+            end = Size_Y;
+        else
+            end = wxMin(end, Size_Y);
+        for(int ylc = start ; ylc < end ; ylc++) {
+            CachedLine *pt = &pLineCache[ylc];
+            if(pt->bValid) {
+                free (pt->pTileOffset);
+                free (pt->pPix);
+                pt->bValid = false;
+            }
+        }
+    }
+}
 
 
 #define BUF_LEN_MAX 4000
@@ -477,8 +493,13 @@ int ChartXTR1::Init( const wxString& name, int init_flags )
       m_FullPath = name;
       m_Description = m_FullPath;
       
-      if(!::wxFileExists(name))
+      if(!::wxFileExists(name)){
+          wxString msg(_T("   OFC_PI: chart BAP file not found: "));
+          msg.Append(m_FullPath);
+          wxLogMessage(msg);
+          
           return INIT_FAIL_REMOVE;
+      }
       
       validate_server();
       
@@ -493,20 +514,57 @@ int ChartXTR1::Init( const wxString& name, int init_flags )
       
       ifs_hdr = new xtr1_inStream(name, key);          // open the file server
 
-      if(!ifs_hdr->Ok())
-            return INIT_FAIL_REMOVE;
+      ifs_hdr->getHK();
+      
+      if(!ifs_hdr->Ok()){
+          wxString msg(_T("   OFC_PI: chart local server error, retrying: "));
+          msg.Append(m_FullPath);
+          wxLogMessage(msg);
+
+          validate_server();
+          
+          ifs_hdr = new xtr1_inStream(name, key);          // open the file server
+          if(!ifs_hdr->Ok()){
+              wxString msg(_T("   OFC_PI: chart local server error, final: "));
+              msg.Append(m_FullPath);
+              wxLogMessage(msg);
+              return INIT_FAIL_REMOVE;
+          }
+      }
 
       
       // Get the chart header structure, and populate local data members
       compressedHeader *pHeader = ifs_hdr->GetCompressedHeader();
       
-      if(!ifs_hdr->IsOk() || (NULL == pHeader)){
+      if(!ifs_hdr->IsOk()){
+          wxString msg(_T("   OFC_PI: chart header local server error: "));
+          msg.Append(m_FullPath);
+          wxLogMessage(msg);
           return INIT_FAIL_REMOVE;
       }
-      
+          
+          
+      if((NULL == pHeader)){
+          wxString msg(_T("   OFC_PI: chart header content error 1: "));
+          msg.Append(m_FullPath);
+          wxLogMessage(msg);
+          
+          return INIT_FAIL_REMOVE;
+      }
+
       // First, the static members
       Size_X = pHeader->Size_X;
       Size_Y = pHeader->Size_Y;
+      
+      if((Size_X <= 0) || (Size_Y <= 0))
+      {
+          wxString msg(_T("   OFC_PI: chart header content error 2: "));
+          msg.Append(m_FullPath);
+          wxLogMessage(msg);
+          
+          return INIT_FAIL_REMOVE;
+      }
+      
       
       m_Name = wxString(pHeader->Name, wxConvUTF8);
       m_ID = wxString(pHeader->ID, wxConvUTF8);
@@ -727,10 +785,6 @@ int ChartXTR1::Init( const wxString& name, int init_flags )
 
 
 //    Validate some of the header data
-      if((Size_X == 0) || (Size_Y == 0))
-      {
-          return INIT_FAIL_REMOVE;
-      }
 
       if(nPlypoint < 3)
       {
@@ -884,7 +938,7 @@ void ChartXTR1::ChartBaseBSBDTOR()
       {
             wxString msg(_T("OFC_PI:  Closing chart "));
             msg += m_FullPath;
-            wxLogMessage(msg);
+            //wxLogMessage(msg);
       }
 
       if(pBitmapFilePath)
@@ -921,19 +975,9 @@ void ChartXTR1::ChartBaseBSBDTOR()
 
 //    Free the line cache
 
-      if(pLineCache)
-      {
-            CachedLine *pt;
-            for(int ylc = 0 ; ylc < Size_Y ; ylc++)
-            {
-                  pt = &pLineCache[ylc];
-                  if(pt->pPix)
-                        free (pt->pPix);
-            }
-            free (pLineCache);
-      }
-
-
+      FreeLineCacheRows();
+      free (pLineCache);
+      
 
       delete pPixCache;
 
